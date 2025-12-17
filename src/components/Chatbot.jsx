@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Volume2 } from 'lucide-react';
+import { Send, User, Bot, Volume2, Mic } from 'lucide-react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
@@ -19,6 +19,9 @@ const Chatbot = () => {
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef(null);
+	
+	const [isRecording, setIsRecording] = useState(false);
+	const recognitionRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,6 +30,44 @@ const Chatbot = () => {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+	
+	useEffect(() => {
+		const SpeechRecognition =
+			window.SpeechRecognition || window.webkitSpeechRecognition;
+
+		if (!SpeechRecognition) {
+			console.warn("Speech recognition not supported");
+			return;
+		}
+
+		const recognition = new SpeechRecognition();
+		recognition.lang = "en-NG"; // Nigerian English
+		recognition.interimResults = false;
+		recognition.continuous = false;
+
+		recognition.onresult = (event) => {
+			const transcript = event.results[0][0].transcript;
+			setInput(transcript);
+			handleSendWithText(transcript);
+		};
+
+		recognition.onend = () => {
+			setIsRecording(false);
+		};
+
+		recognition.onerror = (err) => {
+			console.error("Speech error", err);
+			setIsRecording(false);
+		};
+
+		recognitionRef.current = recognition;
+		    return () => {
+				messages.forEach(msg => {
+					if (msg.audioUrl) URL.revokeObjectURL(msg.audioUrl);
+				});
+    };
+	}, []);
+
 
     const speak = (text) => {
         if ('speechSynthesis' in window) {
@@ -35,40 +76,107 @@ const Chatbot = () => {
         }
     };
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
+	const fetchTTSAudio = async (text) => {
+		try {
+			const response = await fetch("https://yarngpt.ai/api/v1/tts", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					//"Authorization": `Bearer ${import.meta.env.VITE_YARN_API_KEY}`,
+					"Authorization": "Bearer sk_live_NaK9oS2DzW8XFPQbOR6CCBcHRoozuCKncn_rJrsa1Os"
+				},
+				body: JSON.stringify({ text }),
+			});
 
-        const userMessage = { id: Date.now(), text: input, sender: 'user' };
-        setMessages(prev => [...prev, userMessage]);
-        setInput("");
-        setLoading(true);
+			if (!response.ok) throw new Error("TTS failed");
 
-        try {
-            // Simulate API delay if no key, or real call
-            let responseText = "I see. Could you tell me more?";
-            if (API_KEY) {
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", systemInstruction: SYSTEM_PROMPT });
-                const chat = model.startChat({
-                    history: messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
-                });
-                const result = await chat.sendMessage(input);
-                responseText = result.response.text();
-            } else {
-                // Mock response for aesthetics demo
-                await new Promise(r => setTimeout(r, 1000));
-                if (input.toLowerCase().includes('diet')) responseText = "Diet is crucial! For Nigerian diets, try reducing Pounded Yam portions and increasing vegetables like Ugu or Ewedu. Would you like a meal plan?";
-                else responseText = "That sounds important. Remember to monitor your fluid intake as well. Shall we log your current status?";
-            }
+			const audioBlob = await response.blob();
+			const audioUrl = URL.createObjectURL(audioBlob);
 
-            const botMessage = { id: Date.now() + 1, text: responseText, sender: 'bot' };
-            setMessages(prev => [...prev, botMessage]);
+			return audioUrl;
+		} catch (err) {
+			console.error("TTS error:", err);
+			return null;
+		}
+	};
+	
+	const toggleRecording = () => {
+		if (!recognitionRef.current) return;
 
-        } catch (error) {
-            setMessages(prev => [...prev, { id: Date.now() + 1, text: "I'm having trouble connecting right now.", sender: 'bot' }]);
-        } finally {
-            setLoading(false);
-        }
-    };
+		if (isRecording) {
+			recognitionRef.current.stop();
+			setIsRecording(false);
+		} else {
+			recognitionRef.current.start();
+			setIsRecording(true);
+		}
+	};
+
+	const handleSendWithText = async (text) => {
+		if (!text.trim()) return;
+
+		const userMessage = { id: Date.now(), text, sender: 'user' };
+		setMessages(prev => [...prev, userMessage]);
+		setLoading(true);
+		setInput("");
+
+		try {
+			let responseText = "I see. Could you tell me more?";
+
+			if (API_KEY) {
+				const model = genAI.getGenerativeModel({
+					model: "gemini-1.5-flash",
+					systemInstruction: SYSTEM_PROMPT
+				});
+
+				const chat = model.startChat({
+					history: messages.map(m => ({
+						role: m.sender === 'user' ? 'user' : 'model',
+						parts: [{ text: m.text }]
+					})),
+				});
+
+				const result = await chat.sendMessage(text);
+				responseText = result.response.text();
+			}
+
+			const botMessage = {
+				id: Date.now() + 1,
+				text: responseText,
+				sender: 'bot'
+			};
+
+			setMessages(prev => [...prev, botMessage]);
+
+			// 🔊 Auto speak response (nice hackathon touch)
+			const audioUrl = await fetchTTSAudio(responseText);
+			console.log("done fetching");
+
+			if (audioUrl) {
+				console.log(audioUrl, "here");
+				setMessages(prev =>
+					prev.map(m =>
+						m.id === messageId ? { ...m, audioUrl } : m
+					)
+				);
+
+				// Auto-play once
+				const audio = new Audio(audioUrl);
+				audio.play();
+			}
+
+		} catch (e) {
+			setMessages(prev => [...prev, {
+				id: Date.now(),
+				text: "I'm having trouble connecting right now.",
+				sender: 'bot'
+			}]);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleSend = () => handleSendWithText(input);
 
     return (
         <div className="flex flex-col h-full bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden relative">
@@ -97,11 +205,14 @@ const Chatbot = () => {
                         >
                             <p>{msg.text}</p>
                         </div>
-                        {msg.sender === 'bot' && (
-                            <button onClick={() => speak(msg.text)} className="mt-1 ml-2 text-gray-300 hover:text-gray-500">
-                                <Volume2 className="w-3 h-3" />
-                            </button>
-                        )}
+						{msg.sender === 'bot' && msg.audioUrl && (
+							<button
+								onClick={() => new Audio(msg.audioUrl).play()}
+								className="mt-1 ml-2 text-gray-300 hover:text-gray-500"
+							>
+								<Volume2 className="w-3 h-3" />
+							</button>
+						)}
                     </div>
                 ))}
                 {loading && (
@@ -120,23 +231,42 @@ const Chatbot = () => {
 
             {/* Input Area */}
             <div className="p-4 bg-white">
-                <div className="bg-gray-50 p-2 rounded-3xl flex items-center gap-2 pr-2">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder="Type your message..."
-                        className="flex-1 bg-transparent px-4 py-3 focus:outline-none text-gray-700 placeholder-gray-400"
-                    />
-                    <button
-                        onClick={handleSend}
-                        disabled={loading}
-                        className="bg-black hover:bg-gray-800 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors disabled:opacity-50"
-                    >
-                        <Send className="w-4 h-4" />
-                    </button>
-                </div>
+				<div className="bg-gray-50 p-2 rounded-3xl flex items-center gap-2 pr-2">
+
+					<input
+						type="text"
+						value={input}
+						disabled={isRecording}
+						onChange={(e) => setInput(e.target.value)}
+						onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+						placeholder={isRecording ? "Listening..." : "Type your message..."}
+						className="flex-1 bg-transparent px-4 py-3 focus:outline-none text-gray-700 placeholder-gray-400"
+					/>
+
+					{/* Mic Button */}
+					<button
+						onClick={toggleRecording}
+						className={`relative w-10 h-10 rounded-full flex items-center justify-center transition
+							${isRecording
+								? 'bg-red-500 text-white animate-pulse'
+								: 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+							}`}
+					>
+						<Mic className="w-4 h-4" />
+						{isRecording && (
+							<span className="absolute inset-0 rounded-full border-2 border-red-300 animate-ping" />
+						)}
+					</button>
+
+					{/* Send Button */}
+					<button
+						onClick={handleSend}
+						disabled={loading || isRecording}
+						className="bg-black hover:bg-gray-800 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors disabled:opacity-50"
+					>
+						<Send className="w-4 h-4" />
+					</button>
+				</div>
                 <div className="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {/* Quick Actions / Chips */}
                     {["What are the symptoms of CKD?", "Diet plan?", "Manage BP"].map(chip => (
