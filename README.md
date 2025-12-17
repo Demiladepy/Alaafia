@@ -1,39 +1,57 @@
-# Alaafia AI - E-Health for Nigeria
+# Alaafia 
 
-Alaafia AI is a culturally localized medical assistant and dashboard for Nigerian patients with Chronic Kidney Disease (CKD) and Diabetes.
+**Alaafia** is a compassionate, AI-powered Nigerian health assistant designed to help users manage their kidney health & Diabetes. It combines advanced AI with a localized touch to provide personalized support, health monitoring, and educational resources.
 
-## Features
-- **Alaafia Assistant**: AI chatbot that speaks Nigerian languages (English, Pidgin, Yoruba, Hausa, Igbo) and understands local diet/context.
-- **Real-time Glucose Monitoring**: Simulated live data chart tracking glucose levels.
-- **Health Dashboard**: Vitals tracking (BP, Heart Rate, Weight, eGFR).
-- **Daily Action Plan**: Checklist for medication and lifestyle tasks.
+##  Features
 
-## Setup & Running
+- **Interactive AI Chatbot**: Powered by **Google Gemini**, Alaafia understands and converses in a natural, Nigerian-friendly persona.
+- **Voice Interaction**: 
+  - **Speech-to-Text**: optimized for Nigerian English interaction.
+  - **Text-to-Speech**: uses **YarnGPT** to read responses aloud for better accessibility.
+- **Health Reports**: Access trending news and educational resources specifically focused on **Diabetes** and **Chronic Kidney Disease (CKD)** to stay informed.
+- **Medication Management**: (Planned) Simple tools to track and manage prescriptions.
 
-1. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-2. **Configure AI**
-   Create a `.env` file in the root directory and add your Google Gemini API Key:
-   ```env
-   VITE_GEMINI_API_KEY=your_gemini_api_key_here
-   ```
-   *Note: Without the key, the chatbot will simulate responses or show an error.*
+- **Frontend**: [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **AI Logic**: [Google Gemini API](https://ai.google.dev/)
+- **Voice Services**: [YarnGPT API](https://yarngpt.ai/) (TTS)
+- **Icons**: [Lucide React](https://lucide.dev/)
 
-3. **Run Locally**
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:5173](http://localhost:5173) in your browser.
+## ⚙️ Local Setup
 
-## Technologies
-- React 19 + Vite
-- Tailwind CSS
-- Chart.js (`react-chartjs-2`)
-- Google Gemini API (`@google/generative-ai`)
-- Lucide React Icons
+Follow these steps to get Alaafia running on your local machine.
 
-## Disclaimer
-This is a prototype for demonstration purposes. **Always consult a medical professional for real health advice.**
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd Alaafia
+```
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+Create a `.env` file in the root directory of the project. You will need API keys for Google Gemini and YarnGPT.
+
+**`.env` File Content:**
+```env
+VITE_GEMINI_API_KEY=your_google_gemini_api_key_here
+VITE_YARN_API_KEY=your_yarngpt_api_key_here
+```
+
+> **Note:** Never commit your `.env` file to version control.
+
+### 4. Run the Development Server
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5173` (or the port shown in your terminal).
+
+## Contributing
+
+We welcome contributions! Please feel free to submit a Pull Request.
