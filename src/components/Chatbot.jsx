@@ -82,8 +82,7 @@ const Chatbot = () => {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					//"Authorization": `Bearer ${import.meta.env.VITE_YARN_API_KEY}`,
-					"Authorization": "Bearer sk_live_NaK9oS2DzW8XFPQbOR6CCBcHRoozuCKncn_rJrsa1Os"
+					"Authorization": `Bearer ${import.meta.env.VITE_YARN_API_KEY}`,
 				},
 				body: JSON.stringify({ text }),
 			});
