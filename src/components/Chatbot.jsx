@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Volume2, Mic } from 'lucide-react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from '@google/genai';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
 const SYSTEM_PROMPT = `
 You are Alaafia, a compassionate Nigerian health assistant. 
@@ -14,7 +14,7 @@ You are Alaafia, a compassionate Nigerian health assistant.
 
 const Chatbot = () => {
     const [messages, setMessages] = useState([
-        { id: 1, text: "Hi there! I'm here to help you manage your kidney health. What's on your mind today?", sender: 'bot' }
+        { id: 1, text: "Hi there! I'm here to help you manage your kidney health. What's on your mind today?", role: 'model' }
     ]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
@@ -114,7 +114,7 @@ const Chatbot = () => {
 	const handleSendWithText = async (text) => {
 		if (!text.trim()) return;
 
-		const userMessage = { id: Date.now(), text, sender: 'user' };
+		const userMessage = { id: Date.now(), text, role: 'user' };
 		setMessages(prev => [...prev, userMessage]);
 		setLoading(true);
 		setInput("");
@@ -123,26 +123,23 @@ const Chatbot = () => {
 			let responseText = "I see. Could you tell me more?";
 
 			if (API_KEY) {
-				const model = genAI.getGenerativeModel({
-					model: "gemini-1.5-flash",
-					systemInstruction: SYSTEM_PROMPT
-				});
-
-				const chat = model.startChat({
-					history: messages.map(m => ({
-						role: m.sender === 'user' ? 'user' : 'model',
+				const chat = genAI.chats.create({
+					model: "gemini-2.0-flash",
+					config: { systemInstruction: SYSTEM_PROMPT },
+					history: messages.slice(1).map(m => ({
+						role: m.role === 'user' ? 'user' : 'model',
 						parts: [{ text: m.text }]
 					})),
 				});
 
-				const result = await chat.sendMessage(text);
-				responseText = result.response.text();
+				const result = await chat.sendMessage({ message: text });
+				responseText = result.text
 			}
 
 			const botMessage = {
 				id: Date.now() + 1,
 				text: responseText,
-				sender: 'bot'
+				role: 'model'
 			};
 
 			setMessages(prev => [...prev, botMessage]);
@@ -165,10 +162,11 @@ const Chatbot = () => {
 			}
 
 		} catch (e) {
+			console.error(e)
 			setMessages(prev => [...prev, {
 				id: Date.now(),
 				text: "I'm having trouble connecting right now.",
-				sender: 'bot'
+				role: 'model'
 			}]);
 		} finally {
 			setLoading(false);
@@ -192,19 +190,19 @@ const Chatbot = () => {
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
                 {messages.map((msg) => (
-                    <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                         <span className="text-[10px] text-gray-300 font-bold uppercase mb-1 tracking-wider">
-                            {msg.sender === 'user' ? 'You' : 'Alaafia'}
+                            {msg.role === 'user' ? 'You' : 'Alaafia'}
                         </span>
                         <div
-                            className={`max-w-[85%] p-5 rounded-3xl text-sm leading-relaxed ${msg.sender === 'user'
+                            className={`max-w-[85%] p-5 rounded-3xl text-sm leading-relaxed ${msg.role === 'user'
                                     ? 'bg-accent text-black rounded-tr-sm' // Yellow bubble for user
                                     : 'bg-gray-50 text-gray-700 rounded-tl-sm' // Light gray for bot
                                 }`}
                         >
                             <p>{msg.text}</p>
                         </div>
-						{msg.sender === 'bot' && msg.audioUrl && (
+						{msg.role === 'model' && msg.audioUrl && (
 							<button
 								onClick={() => new Audio(msg.audioUrl).play()}
 								className="mt-1 ml-2 text-gray-300 hover:text-gray-500"
