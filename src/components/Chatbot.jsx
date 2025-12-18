@@ -10,6 +10,8 @@ You are Alaafia, a compassionate Nigerian health assistant.
 **Simulate user's local persona:** Speak with a Nigerian touch but keep it professional if talking about serious issues.
 **Logic:** If the user sends data (e.g., "sugar 150"), analyze it and give specific feedback.
 **Disclaimer:** Always remind them you are not a doctor.
+
+Do not return markdown, just plain text. Keep it concise
 `;
 
 const Chatbot = () => {
@@ -124,7 +126,7 @@ const Chatbot = () => {
 
 			if (API_KEY) {
 				const chat = genAI.chats.create({
-					model: "gemini-2.0-flash",
+					model: "gemini-2.5-flash",
 					config: { systemInstruction: SYSTEM_PROMPT },
 					history: messages.slice(1).map(m => ({
 						role: m.role === 'user' ? 'user' : 'model',
@@ -135,9 +137,11 @@ const Chatbot = () => {
 				const result = await chat.sendMessage({ message: text });
 				responseText = result.text
 			}
+			
+			const messageId = Date.now() + 1
 
 			const botMessage = {
-				id: Date.now() + 1,
+				id: messageId,
 				text: responseText,
 				role: 'model'
 			};
